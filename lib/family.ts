@@ -16,8 +16,6 @@ export interface FamilyInfo {
 export interface DogProfile {
   id: string;
   name: string;
-  breed: string | null;
-  birthday: string | null; // YYYY-MM-DD
 }
 
 export async function fetchFamily(familyId: string): Promise<FamilyInfo> {
@@ -43,7 +41,7 @@ export async function fetchDogProfile(familyId: string): Promise<DogProfile | nu
   if (!supabase) throw new Error("no-keys");
   const { data, error } = await supabase
     .from("dogs")
-    .select("id, name, breed, birthday")
+    .select("id, name")
     .eq("family_id", familyId)
     .order("created_at")
     .limit(1)
@@ -63,3 +61,4 @@ export async function updateMyDisplayName(memberId: string, name: string) {
   if (error) throw error;
   if (!data || data.length === 0) throw new Error("not-updated");
 }
+

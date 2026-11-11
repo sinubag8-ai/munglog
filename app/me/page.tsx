@@ -81,10 +81,7 @@ export default function MePage() {
         ) : (
           <div>
             <div className="dog-name">{dog.name}</div>
-            <div className="dog-info">{dog.breed ?? "견종을 아직 안 적었어요"}</div>
-            <div className="dog-info">
-              {dog.birthday ? `생일 ${dog.birthday.replaceAll("-", ".")}` : "생일을 아직 안 적었어요"}
-            </div>
+            <div className="dog-info">가족과 함께 돌보고 있어요</div>
           </div>
         )}
       </div>
