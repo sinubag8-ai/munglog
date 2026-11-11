@@ -4,7 +4,7 @@ import type { Dog, Family } from "./types";
 
 export const mockFamily: Family = {
   id: "family-1",
-  name: "콩이네",
+  name: "땅콩이네",
   inviteCode: "A3K9P2",
   members: [
     { id: "m-mom", displayName: "엄마", isOwner: true },
