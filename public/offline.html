@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#ff8a3d" />
+  <title>멍로그 · 연결을 확인해 주세요</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+      background: #ffffff; color: #2b2420; padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    }
+    .card { max-width: 360px; width: 100%; text-align: center; border: 1px solid #f0e8e2; border-radius: 20px; padding: 36px 24px; }
+    .emoji { font-size: 56px; margin-bottom: 12px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    p { color: #8a7f78; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
+    button {
+      width: 100%; border: none; border-radius: 16px; background: #ff8a3d; color: #fff;
+      font-size: 18px; font-weight: 700; padding: 18px; cursor: pointer; font-family: inherit;
+    }
+    button:active { background: #e8701f; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="emoji">📡🐾</div>
+    <h1>연결을 확인해 주세요</h1>
+    <p>인터넷이 끊겨서 멍로그를 열 수 없어요.<br />와이파이나 데이터를 켠 다음 다시 시도해 주세요.</p>
+    <button type="button" onclick="location.reload()">다시 시도하기</button>
+  </main>
+  <script>
+    // 인터넷이 다시 연결되면 자동으로 새로고침해요
+    window.addEventListener("online", function () { location.reload(); });
+  </script>
+</body>
+</html>

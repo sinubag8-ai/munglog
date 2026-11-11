@@ -44,7 +44,7 @@ textarea {
 }
 
 .page {
-  padding: 24px 20px calc(var(--tabbar-h) + 32px);
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(var(--tabbar-h) + 32px);
 }
 
 /* 공통 */
