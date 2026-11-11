@@ -2,10 +2,12 @@
 
 // 👤 내 정보: 표시 이름, 강아지 프로필, 로그아웃
 import { useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { useCare } from "@/lib/care-store";
 
 export default function MePage() {
   const { me, dog, updateMyName } = useCare();
+  const { signOut } = useAuth();
   const [name, setName] = useState(me.displayName);
   const [saved, setSaved] = useState(false);
 
@@ -52,7 +54,7 @@ export default function MePage() {
         </div>
       </div>
 
-      <button type="button" className="logout" onClick={() => alert("로그인 기능은 STEP 6에서 붙일 예정이에요.")}>
+      <button type="button" className="logout" onClick={signOut}>
         로그아웃
       </button>
     </>

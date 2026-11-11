@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import TabBar from "@/components/TabBar";
+import AuthGate from "@/components/AuthGate";
+import { AuthProvider } from "@/lib/auth";
 import { CareProvider } from "@/lib/care-store";
 import "./globals.css";
 
@@ -18,12 +19,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
-        <CareProvider>
-          <div className="app">
-            <main className="page">{children}</main>
-            <TabBar />
-          </div>
-        </CareProvider>
+        <AuthProvider>
+          <CareProvider>
+            <div className="app">
+              <AuthGate>{children}</AuthGate>
+            </div>
+          </CareProvider>
+        </AuthProvider>
       </body>
     </html>
   );

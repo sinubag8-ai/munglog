@@ -2,6 +2,8 @@
 -- 멍로그 데이터베이스 (Supabase → SQL Editor 에 통째로 붙여넣고 Run)
 -- 구조: 가족방(families) → 강아지(dogs) → 돌봄 기록(care_records)
 --       가족 구성원(family_members)이 가족방에 속해요.
+-- 새 프로젝트를 처음부터 만들 때 쓰는 "전체 최신본"이에요.
+-- 이미 만든 프로젝트는 supabase/changes/ 의 변경 파일만 순서대로 실행해요.
 -- 여러 번 실행해도 괜찮아요 (이미 있으면 건너뛰거나 다시 만들어요).
 -- =====================================================================
 
@@ -14,7 +16,6 @@ create table if not exists public.families (
   id          uuid primary key default gen_random_uuid(),
   name        text not null check (char_length(name) between 1 and 20),
   invite_code text not null unique check (invite_code ~ '^[A-Z0-9]{6}$'), -- 6자리 초대 코드
-  is_demo     boolean not null default false, -- 연습용 가족방 (STEP 6에서 정리)
   created_at  timestamptz not null default now()
 );
 
@@ -69,13 +70,6 @@ as $$
   );
 $$;
 
--- "이 가족방은 연습용인가요?"
-create or replace function public.is_demo_family(fid uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select coalesce((select is_demo from public.families where id = fid), false);
-$$;
 
 -- ---------------------------------------------------------------------
 -- 3. 보안 규칙 (RLS): 같은 가족방 사람만 보고 쓸 수 있어요
@@ -160,78 +154,106 @@ create policy "records: 내 기록만 삭제" on public.care_records
   ));
 
 -- ---------------------------------------------------------------------
--- 4. ⏳ 임시 규칙: 연습용 가족방은 로그인 없이 "읽기만" 가능
---    STEP 6(로그인)에서 이 4개 규칙은 지울 거예요.
+-- 4. 앱에서 표에 접근할 수 있게 허락 (실제로 무엇이 보이는지는 위 보안 규칙이 정해요)
 -- ---------------------------------------------------------------------
 
-drop policy if exists "임시: 연습용 가족방 읽기" on public.families;
-create policy "임시: 연습용 가족방 읽기" on public.families
-  for select to anon, authenticated
-  using (is_demo);
-
-drop policy if exists "임시: 연습용 구성원 읽기" on public.family_members;
-create policy "임시: 연습용 구성원 읽기" on public.family_members
-  for select to anon, authenticated
-  using (public.is_demo_family(family_id));
-
-drop policy if exists "임시: 연습용 강아지 읽기" on public.dogs;
-create policy "임시: 연습용 강아지 읽기" on public.dogs
-  for select to anon, authenticated
-  using (public.is_demo_family(family_id));
-
-drop policy if exists "임시: 연습용 기록 읽기" on public.care_records;
-create policy "임시: 연습용 기록 읽기" on public.care_records
-  for select to anon, authenticated
-  using (exists (
-    select 1 from public.dogs d
-    where d.id = care_records.dog_id and public.is_demo_family(d.family_id)
-  ));
-
--- ---------------------------------------------------------------------
--- 5. 앱에서 표에 접근할 수 있게 허락 (실제로 무엇이 보이는지는 위 보안 규칙이 정해요)
--- ---------------------------------------------------------------------
-
-grant usage on schema public to anon, authenticated;
-grant select on public.families, public.family_members, public.dogs, public.care_records to anon, authenticated;
+grant usage on schema public to authenticated;
+grant select on public.families, public.family_members, public.dogs, public.care_records to authenticated;
 grant update on public.families, public.family_members, public.dogs to authenticated;
 grant insert on public.dogs, public.care_records to authenticated;
 grant delete on public.care_records to authenticated;
-grant execute on function public.is_family_member(uuid), public.is_demo_family(uuid) to anon, authenticated;
+grant execute on function public.is_family_member(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------
--- 6. 연습용 데이터: 땅콩이네 가족방 + 땅콩이 + 오늘 기록 6개
---    기록 시각은 "오늘(한국 시간) 0시 ~ 지금" 사이에 골고루 만들어져요.
+-- 5. 초대 코드 만들기 (헷갈리는 글자 0·O·1·I 는 빼고 6자리)
 -- ---------------------------------------------------------------------
 
-insert into public.families (id, name, invite_code, is_demo) values
-  ('00000000-0000-0000-0000-00000000f001', '땅콩이네', 'A3K9P2', true)
-on conflict (id) do nothing;
+create or replace function public.generate_invite_code()
+returns text
+language plpgsql volatile set search_path = public
+as $$
+declare
+  chars constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  new_code text;
+begin
+  loop
+    new_code := '';
+    for i in 1..6 loop
+      new_code := new_code || substr(chars, 1 + floor(random() * length(chars))::int, 1);
+    end loop;
+    exit when not exists (select 1 from public.families where invite_code = new_code);
+  end loop;
+  return new_code;
+end;
+$$;
 
-insert into public.family_members (id, family_id, display_name, is_owner) values
-  ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000f001', '엄마', true),
-  ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-00000000f001', '아빠', false),
-  ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-00000000f001', '나',   false),
-  ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-00000000f001', '언니', false)
-on conflict (id) do nothing;
+-- 앱에서 직접 부르지 못하게 해요 (가족방 만들기 함수 안에서만 써요)
+revoke execute on function public.generate_invite_code() from public, anon, authenticated;
 
-insert into public.dogs (id, family_id, name, breed, birthday) values
-  ('00000000-0000-0000-0000-00000000d001', '00000000-0000-0000-0000-00000000f001', '땅콩이', '말티즈', '2022-04-15')
-on conflict (id) do nothing;
+-- ---------------------------------------------------------------------
+-- 6. 가족방 만들기: 가족방 + 나(방장) + 강아지를 한 번에 만들어요
+-- ---------------------------------------------------------------------
 
--- 연습용 기록은 실행할 때마다 "오늘" 기록으로 새로 만들어요
-delete from public.care_records where dog_id = '00000000-0000-0000-0000-00000000d001';
+create or replace function public.create_family(family_name text, dog_name text, my_name text)
+returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  fid uuid;
+begin
+  if uid is null then raise exception 'not_logged_in'; end if;
+  -- 지금은 한 사람이 가족방 1개에만 들어갈 수 있어요
+  if exists (select 1 from public.family_members where user_id = uid) then
+    raise exception 'already_in_family';
+  end if;
 
-with t as (
-  select (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') as start_at
-)
-insert into public.care_records (dog_id, member_id, type, memo, created_at)
-select '00000000-0000-0000-0000-00000000d001', v.member_id::uuid, v.type, v.memo,
-       t.start_at + (now() - t.start_at) * v.fraction
-from t, (values
-  ('00000000-0000-0000-0000-0000000000a1', 'meal',  '사료 반 컵',      0.35),
-  ('00000000-0000-0000-0000-0000000000a2', 'walk',  '공원 한 바퀴',    0.42),
-  ('00000000-0000-0000-0000-0000000000a3', 'snack', null,              0.55),
-  ('00000000-0000-0000-0000-0000000000a4', 'snack', '덴탈껌 1개',      0.68),
-  ('00000000-0000-0000-0000-0000000000a1', 'meal',  null,              0.80),
-  ('00000000-0000-0000-0000-0000000000a3', 'walk',  '비 와서 짧게 🌧️', 0.92)
-) as v(member_id, type, memo, fraction);
+  insert into public.families (name, invite_code)
+  values (trim(family_name), public.generate_invite_code())
+  returning id into fid;
+
+  insert into public.family_members (family_id, user_id, display_name, is_owner)
+  values (fid, uid, trim(my_name), true);
+
+  insert into public.dogs (family_id, name)
+  values (fid, trim(dog_name));
+
+  return fid;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 7. 초대 코드로 참여하기
+-- ---------------------------------------------------------------------
+
+create or replace function public.join_family(code text, my_name text)
+returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  fid uuid;
+begin
+  if uid is null then raise exception 'not_logged_in'; end if;
+
+  select id into fid from public.families where invite_code = upper(trim(code));
+  if fid is null then raise exception 'invalid_code'; end if;
+
+  if exists (select 1 from public.family_members where family_id = fid and user_id = uid) then
+    raise exception 'already_member';
+  end if;
+  if exists (select 1 from public.family_members where user_id = uid) then
+    raise exception 'already_in_family';
+  end if;
+
+  insert into public.family_members (family_id, user_id, display_name)
+  values (fid, uid, trim(my_name));
+
+  return fid;
+end;
+$$;
+
+revoke execute on function public.create_family(text, text, text) from public, anon;
+revoke execute on function public.join_family(text, text) from public, anon;
+grant execute on function public.create_family(text, text, text) to authenticated;
+grant execute on function public.join_family(text, text) to authenticated;
