@@ -199,7 +199,7 @@ grant delete on public.care_records to authenticated;
 grant execute on function public.is_family_member(uuid), public.is_demo_family(uuid) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
--- 6. 연습용 데이터: 콩이네 가족방 + 콩이 + 오늘 기록 6개
+-- 6. 연습용 데이터: 콩이네 가족방 + 땅콩이 + 오늘 기록 6개
 --    기록 시각은 "오늘(한국 시간) 0시 ~ 지금" 사이에 골고루 만들어져요.
 -- ---------------------------------------------------------------------
 
@@ -215,7 +215,7 @@ insert into public.family_members (id, family_id, display_name, is_owner) values
 on conflict (id) do nothing;
 
 insert into public.dogs (id, family_id, name, breed, birthday) values
-  ('00000000-0000-0000-0000-00000000d001', '00000000-0000-0000-0000-00000000f001', '콩이', '말티즈', '2022-04-15')
+  ('00000000-0000-0000-0000-00000000d001', '00000000-0000-0000-0000-00000000f001', '땅콩이', '말티즈', '2022-04-15')
 on conflict (id) do nothing;
 
 -- 연습용 기록은 실행할 때마다 "오늘" 기록으로 새로 만들어요

@@ -17,7 +17,7 @@ export const mockFamily: Family = {
 export const mockDog: Dog = {
   id: "dog-1",
   familyId: "family-1",
-  name: "콩이",
+  name: "땅콩이",
   breed: "말티즈",
   birthday: "2022-04-15",
 };
