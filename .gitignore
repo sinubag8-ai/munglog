@@ -1,0 +1,17 @@
+# 설치된 부품 (다시 설치하면 생겨요)
+node_modules/
+
+# 빌드 결과물
+.next/
+out/
+
+# 비밀 키 파일: 절대 깃허브에 올리지 않아요
+.env
+.env*.local
+
+# 기타
+.DS_Store
+*.log
+next-env.d.ts
+*.tsbuildinfo
+.vercel
