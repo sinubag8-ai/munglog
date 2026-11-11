@@ -2,14 +2,11 @@
 
 // 🏠 오늘: 오늘 요약 + 시간 순 타임라인 (Supabase에서 읽어 와요)
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useCare } from "@/lib/care-store";
-import { fetchToday, type TimelineItem, type TodayResult } from "@/lib/today";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { deleteRecord } from "@/lib/records";
+import { fetchToday, type TodayResult } from "@/lib/today";
 import { CARE_LABELS, CARE_ORDER } from "@/lib/types";
-
-function isToday(iso: string) {
-  return new Date(iso).toDateString() === new Date().toDateString();
-}
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -17,14 +14,47 @@ function formatTime(iso: string) {
 }
 
 export default function TodayPage() {
-  const { family, records: localRecords } = useCare();
+  const { membership } = useAuth();
   const [result, setResult] = useState<TodayResult | null>(null); // null = 불러오는 중
+  const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchToday()
+  const familyId = membership?.familyId;
+
+  const load = useCallback(() => {
+    if (!familyId) return;
+    fetchToday(familyId)
       .then(setResult)
       .catch(() => setResult({ ok: false, reason: "error" }));
-  }, []);
+  }, [familyId]);
+
+  useEffect(() => {
+    load();
+    // 앱을 다시 열면(다른 앱에 갔다 돌아오면) 가족이 남긴 최신 기록을 다시 불러와요
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
+
+  function showToast(message: string) {
+    setToast(message);
+    setTimeout(() => setToast(null), 1800);
+  }
+
+  async function handleDelete(recordId: string, label: string) {
+    if (!result?.ok || !result.data) return;
+    if (!window.confirm(`이 ${label} 기록을 지울까요?`)) return;
+
+    // 화면에서 먼저 지우고(숫자 바로 줄어듦), 실패하면 되돌려요
+    const before = result;
+    setResult({ ok: true, data: { ...result.data, items: result.data.items.filter((r) => r.id !== recordId) } });
+    try {
+      await deleteRecord(recordId);
+      showToast("기록을 지웠어요 🗑️");
+    } catch {
+      setResult(before);
+      showToast("지우지 못했어요. 다시 시도해 주세요.");
+    }
+  }
 
   if (!result) {
     return <p className="page-sub loading">기록을 불러오는 중이에요… 🐾</p>;
@@ -33,12 +63,11 @@ export default function TodayPage() {
   if (!result.ok) {
     return (
       <div className="card empty">
-        <div className="empty-emoji">{result.reason === "no-keys" ? "🔑" : "📡"}</div>
-        <p>
-          {result.reason === "no-keys"
-            ? "Supabase 키를 아직 넣지 않았어요. .env.local 파일을 확인해 주세요."
-            : "기록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요."}
-        </p>
+        <div className="empty-emoji">📡</div>
+        <p>기록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</p>
+        <button type="button" className="btn-primary" onClick={load}>
+          다시 불러오기
+        </button>
       </div>
     );
   }
@@ -52,19 +81,7 @@ export default function TodayPage() {
     );
   }
 
-  const { dogName, items: savedItems } = result.data;
-
-  // 이번에 새로 남긴 기록(아직 Supabase에 저장 전)도 함께 보여 줘요
-  const nameOf = (memberId: string) =>
-    family.members.find((m) => m.id === memberId)?.displayName ?? "가족";
-  const localItems: TimelineItem[] = localRecords
-    .filter((r) => isToday(r.createdAt))
-    .map((r) => ({ id: r.id, type: r.type, createdAt: r.createdAt, memo: r.memo, who: nameOf(r.memberId) }));
-
-  const todayItems = [...savedItems, ...localItems].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  ); // 최신이 위
-
+  const { dogName, items } = result.data;
   const now = new Date();
   const dateText = `${now.getMonth() + 1}월 ${now.getDate()}일`;
 
@@ -80,14 +97,14 @@ export default function TodayPage() {
           <div key={type} className="summary-item">
             <div className="summary-emoji">{CARE_LABELS[type].emoji}</div>
             <div className="summary-label">{CARE_LABELS[type].label}</div>
-            <div className="summary-count">{todayItems.filter((r) => r.type === type).length}</div>
+            <div className="summary-count">{items.filter((r) => r.type === type).length}</div>
           </div>
         ))}
       </div>
 
       <h2 className="section-title">오늘 타임라인</h2>
 
-      {todayItems.length === 0 ? (
+      {items.length === 0 ? (
         <div className="card empty">
           <div className="empty-emoji">🐾</div>
           <p>아직 오늘 기록이 없어요</p>
@@ -97,19 +114,38 @@ export default function TodayPage() {
         </div>
       ) : (
         <ul className="timeline">
-          {todayItems.map((r) => (
-            <li key={r.id} className="card timeline-item">
-              <span className="timeline-time">{formatTime(r.createdAt)}</span>
-              <div>
-                <div className="timeline-main">
-                  {CARE_LABELS[r.type].emoji} {CARE_LABELS[r.type].label}{" "}
-                  <span className="timeline-who">· {r.who}</span>
+          {items.map((r) => {
+            const mine = r.memberId === membership?.memberId;
+            return (
+              <li key={r.id} className="card timeline-item">
+                <span className="timeline-time">{formatTime(r.createdAt)}</span>
+                <div className="timeline-body">
+                  <div className="timeline-main">
+                    {CARE_LABELS[r.type].emoji} {CARE_LABELS[r.type].label}{" "}
+                    <span className="timeline-who">· {r.who}</span>
+                  </div>
+                  {r.memo && <div className="timeline-memo">“{r.memo}”</div>}
                 </div>
-                {r.memo && <div className="timeline-memo">“{r.memo}”</div>}
-              </div>
-            </li>
-          ))}
+                {mine && (
+                  <button
+                    type="button"
+                    className="delete-btn"
+                    aria-label={`${formatTime(r.createdAt)} ${CARE_LABELS[r.type].label} 기록 지우기`}
+                    onClick={() => handleDelete(r.id, CARE_LABELS[r.type].label)}
+                  >
+                    🗑️
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
       )}
     </>
   );
