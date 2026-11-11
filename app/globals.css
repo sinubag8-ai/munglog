@@ -569,3 +569,12 @@ textarea {
   opacity: 1;
   background: var(--orange-soft);
 }
+
+.form-ok {
+  color: #2b8a3e;
+  background: #ebfbee;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+}

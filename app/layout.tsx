@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import AuthGate from "@/components/AuthGate";
 import { AuthProvider } from "@/lib/auth";
-import { CareProvider } from "@/lib/care-store";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,11 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body>
         <AuthProvider>
-          <CareProvider>
-            <div className="app">
-              <AuthGate>{children}</AuthGate>
-            </div>
-          </CareProvider>
+          <div className="app">
+            <AuthGate>{children}</AuthGate>
+          </div>
         </AuthProvider>
       </body>
     </html>
