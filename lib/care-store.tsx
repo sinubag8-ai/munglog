@@ -1,11 +1,12 @@
 "use client";
 
 // 화면들이 같이 쓰는 임시 저장소
-// 지금은 메모리에만 저장해서 새로고침하면 처음 가짜 데이터로 돌아가요.
-// STEP 5에서 Supabase로 바꿀 예정이에요.
+// 오늘 기록 "읽기"는 Supabase에서 해요 (lib/today.ts).
+// 기록 "저장"은 STEP 6(로그인)에서 Supabase로 연결할 예정이라,
+// 그전까지 새로 남긴 기록은 여기(메모리)에만 있어서 새로고침하면 사라져요.
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { CURRENT_MEMBER_ID, mockDog, mockFamily, createMockRecords } from "./mock-data";
+import { CURRENT_MEMBER_ID, mockDog, mockFamily } from "./mock-data";
 import type { CareRecord, CareType, Dog, Family, Member } from "./types";
 
 interface CareStore {
@@ -21,7 +22,7 @@ const CareContext = createContext<CareStore | null>(null);
 
 export function CareProvider({ children }: { children: ReactNode }) {
   const [family, setFamily] = useState<Family>(mockFamily);
-  const [records, setRecords] = useState<CareRecord[]>(createMockRecords);
+  const [records, setRecords] = useState<CareRecord[]>([]);
   const dog = mockDog;
   const me = family.members.find((m) => m.id === CURRENT_MEMBER_ID)!;
 

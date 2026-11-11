@@ -412,3 +412,8 @@ textarea {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.loading {
+  text-align: center;
+  padding: 60px 0;
+}
